@@ -23,6 +23,12 @@ public class Ed25519Signer {
                 .type(Arguments.fileType().verifyCanRead())
                 .dest("key")
                 .help("Key file");
+        parser.addArgument("-b", "--base64")
+                .nargs("?")
+                .type(Arguments.caseInsensitiveEnumType(Base64Encoding.class))
+                .setDefault(Base64Encoding.BASE64URL)
+                .dest("base64")
+                .help("Base64 encoding method to use, Base64Url or Base64");
         parser.addArgument("-i", "--in")
                 .nargs("?")
                 .help("Input data file, defaults to stdin")
@@ -41,12 +47,13 @@ public class Ed25519Signer {
         Security.addProvider(new BouncyCastleProvider());
 
         File keyFile = ns.get("key");
+        Base64Encoding b64 = ns.get("base64");
         BufferedInputStream dataIn = ns.get("in");
 
-        new Ed25519Signer(keyFile, dataIn);
+        new Ed25519Signer(keyFile, dataIn, b64.encoder);
     }
 
-    public Ed25519Signer(File keyFile, InputStream dataIn) {
+    public Ed25519Signer(File keyFile, InputStream dataIn, Base64.Encoder encoder) {
         // Attempt to read key
         PrivateKey key = null;
         try {
@@ -68,7 +75,7 @@ public class Ed25519Signer {
             sign.update(data);
             byte[] signature = sign.sign();
 
-            System.out.println(Base64.getUrlEncoder().withoutPadding().encodeToString(signature));
+            System.out.println(encoder.encodeToString(signature));
         } catch (IOException | GeneralSecurityException e) {
             System.err.println("Unable to calculate signature");
             e.printStackTrace();
@@ -93,6 +100,16 @@ public class Ed25519Signer {
 
         buffer.flush();
         return buffer.toByteArray();
+    }
+
+    public enum Base64Encoding {
+        BASE64(Base64.getEncoder()),
+        BASE64URL(Base64.getUrlEncoder().withoutPadding());
+
+        Base64.Encoder encoder;
+        Base64Encoding(Base64.Encoder encoder) {
+            this.encoder = encoder;
+        }
     }
 
 }
